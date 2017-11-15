@@ -1,0 +1,326 @@
+$react-dates-color-primary: 'red';
+$react-dates-color-secondary: 'orange';
+@import '~react-dates/css/variables.scss';
+@import '~react-dates/css/styles.scss';
+
+body {
+  height: 100%;
+  width: 100%;
+}
+
+.map {
+  height: 500px;
+  width: 100%;
+}
+
+.map-wrapper {
+  padding-left: 10px;
+  padding-right: 10px;
+}
+
+#filter-sidebar {
+  position: absolute;
+  z-index: 100;
+}
+
+#filter-sidebar {
+  /*background: rgba(204, 204, 204, 0.4);*/
+  background: #fff;
+  margin-top: 20px;
+  margin-left: 20px;
+  padding: 10px;
+  border-radius: 5px;
+  padding-bottom: 10px;
+}
+
+.theme-color {
+  color: #777;
+}
+
+.app-title {
+  padding-left: 20px;
+  font-size: 24px;
+  font-weight: bold;
+}
+
+body {
+  padding-top: 50px;
+}
+
+.header-links {
+  float: right !important;
+}
+
+.footer {
+  height: 60px;
+}
+
+.footer .row {
+  min-height: 100%;
+}
+
+.footer .container {
+  min-height: 100%;
+}
+
+.footer .row div {
+  text-align: center;
+  height: 60px;
+  font-size: 30px;
+}
+
+.layer-info {
+  margin-left: 5px;
+  font-size: 12px;
+}
+
+.blue-tooltip + .tooltip > .tooltip-inner {
+  background-color: #337ab7;
+}
+
+.blue-tooltip + .tooltip.right > .tooltip-arrow {
+  /*border-top-color: #337ab7;*/
+  /*border: 1px solid #337ab7;*/
+}
+
+#info-box {
+  background-color: white;
+  border: 1px solid black;
+  bottom: 30px;
+  height: 40px;
+  padding: 10px;
+  position: absolute;
+  left: 30px;
+}
+
+.sidebar-label {
+  color: #777;
+  padding: 0px 10px 10px 0px;
+  font-size: 16px;
+  border-bottom: 1px solid #777;
+  /* border-radius: 5px; */
+  padding: 5px 5px 5px 0px;
+  margin-bottom: 10px;
+  font-weight: bold;
+}
+
+.sidebar-label:nth-last-of-type(3) {
+  margin-top: 10px;
+}
+
+.layer-list-item {
+  text-transform: capitalize;
+  color: #337ab7;
+  margin-top: 5px;
+}
+
+.navbar-default {
+  background-color: #fff !important;
+}
+
+.navbar-default .navbar-brand {
+  color: #337ab7 !important;
+}
+
+.DateInput__display-text--has-input {
+  color: #337ab7 !important;
+}
+
+.hidden {
+  display: none;
+}
+
+.layer-help-container {
+  position: absolute;
+  z-index: 102;
+}
+/* Google Sign in START */
+.g-sign-in .button {
+  display: inline-block;
+  background: #4285f4;
+  color: white;
+  width: 190px;
+  border-radius: 5px;
+  white-space: nowrap;
+}
+.g-sign-in .button:hover {
+  cursor: pointer;
+}
+.g-sign-in .label {
+  font-weight: bold;
+}
+.g-sign-in .icon {
+  background: url('/static/css/g-icon.png') transparent 5px 50% no-repeat;
+  display: inline-block;
+  vertical-align: middle;
+  width: 42px;
+  height: 42px;
+  border-right: #2265d4 1px solid;
+}
+.g-sign-in .button-text {
+  display: inline-block;
+  vertical-align: middle;
+  padding-left: 42px;
+  padding-right: 42px;
+  font-size: 14px;
+  font-weight: bold;
+}
+/* Google Sign in END */
+
+/* Switch layer - START */
+/* The switch - the box around the slider */
+.switch {
+  position: relative;
+  display: inline-block;
+  width: 25px;
+  height: 15px;
+  float: left;
+  margin-right: 5px;
+  margin-top: 2px;
+}
+
+/* Hide default HTML checkbox  */
+.switch input {
+  display: none;
+}
+
+/* The slider */
+.slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #ccc;
+  -webkit-transition: 0.4s;
+  transition: 0.4s;
+}
+
+.slider:before {
+  position: absolute;
+  content: '';
+  height: 11px;
+  width: 11px;
+  left: 2px;
+  bottom: 2px;
+  background-color: white;
+  -webkit-transition: 0.4s;
+  transition: 0.4s;
+}
+
+input:checked + .slider {
+  background-color: #2196f3;
+}
+
+input:focus + .slider {
+  box-shadow: 0 0 1px #2196f3;
+}
+
+input:checked + .slider:before {
+  -webkit-transform: translateX(10px);
+  -ms-transform: translateX(10px);
+  transform: translateX(10px);
+}
+
+/* Rounded sliders */
+.slider.round {
+  border-radius: 10px;
+}
+
+.slider.round:before {
+  border-radius: 50%;
+}
+
+/* Switch Layer - END */
+
+#info-box {
+  display: none;
+}
+
+.logo {
+  background-repeat: no-repeat;
+  background-position: center;
+  margin-top: 10px;
+  height: 60px;
+}
+
+.arghyam-logo {
+  background-image: url('logos/arghyam-logo.png');
+  background-size: 105px 60px;
+}
+
+.datameet-logo {
+  background-image: url('logos/datameet_logo.png');
+  margin-top: 20px;
+  background-size: 180px 45px;
+}
+
+.cis-logo {
+  background-image: url('logos/cis-logo.png');
+  background-size: 190px 70px;
+}
+
+.tiles-loading {
+  float: right;
+  text-transform: lowercase;
+  color: #777;
+}
+
+.overlay {
+  background: #e9e9e9;
+  display: none;
+  position: absolute;
+  top: 50px;
+  right: 0;
+  left: 0;
+  opacity: 0.5;
+  z-index: 20;
+}
+
+#loading-img {
+  /*background: url(http://preloaders.net/preloaders/360/Velocity.gif) center
+    center no-repeat;*/
+  height: 80%;
+  z-index: 20;
+  margin-top: 150px;
+  text-align: center;
+  height: 350px;
+}
+
+.export-btn {
+  display: none;
+  float: right;
+}
+
+#message-box {
+  position: absolute;
+  top: 0px;
+  /* z-index: 10; */
+  text-align: center;
+  margin-left: auto;
+  margin-right: auto;
+  left: 0;
+  right: 0;
+  border: 1px solid;
+  border-radius: 3px;
+  display: none;
+}
+
+.close-btn {
+  float: right;
+  margin-right: 10px;
+  cursor: pointer;
+}
+
+.alert-warning {
+  color: #8a6d3b;
+  background-color: #fcf8e3;
+  border-color: #faebcc;
+}
+
+.alert-success {
+  color: #3c763d;
+  background-color: #dff0d8;
+  border-color: #d6e9c6;
+}
