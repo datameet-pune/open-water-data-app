@@ -6,16 +6,16 @@ import string
 import time
 
 import config
-import drive
+# import drive
 import ee
 import jinja2
-import oauth2client.contrib.appengine
+# import oauth2client.contrib.appengine
 import webapp2
 
-from google.appengine.api import channel
-from google.appengine.api import taskqueue
+# from google.appengine.api import channel
+# from google.appengine.api import taskqueue
 from google.appengine.api import urlfetch
-from google.appengine.api import users
+# from google.appengine.api import users
 
 urlfetch.set_default_fetch_deadline(120000)
 ee.data.setDeadline(60000)
@@ -40,7 +40,7 @@ JINJA2_ENVIRONMENT = jinja2.Environment(
 ee.Initialize(EE_CREDENTIALS)
 
 # Check https://developers.google.com/drive/scopes for all available scopes.
-OAUTH_SCOPE = 'https://www.googleapis.com/auth/drive'
+# OAUTH_SCOPE = 'https://www.googleapis.com/auth/drive'
 
 # The app's service account credentials (for Google Drive).
 # APP_CREDENTIALS = oauth2client.service_account.ServiceAccountCredentials(
@@ -48,19 +48,19 @@ OAUTH_SCOPE = 'https://www.googleapis.com/auth/drive'
 #     open(config.EE_PRIVATE_KEY_FILE, 'rb').read(),
 #     OAUTH_SCOPE)
 
-APP_CREDENTIALS = oauth2client.service_account.ServiceAccountCredentials.from_json_keyfile_name(config.EE_PRIVATE_KEY_FILE, OAUTH_SCOPE)
-
-# An authenticated Drive helper object for the app service account.
-APP_DRIVE_HELPER = drive.DriveHelper(APP_CREDENTIALS)
-
-# The decorator to trigger the user's Drive permissions request flow.
-OAUTH_DECORATOR = oauth2client.contrib.appengine.OAuth2Decorator(
-    client_id=config.OAUTH_CLIENT_ID,
-    client_secret=config.OAUTH_CLIENT_SECRET,
-    scope=OAUTH_SCOPE)
-
-# The frequency to poll for export EE task completion (seconds).
-TASK_POLL_FREQUENCY = 10
+# APP_CREDENTIALS = oauth2client.service_account.ServiceAccountCredentials.from_json_keyfile_name(config.EE_PRIVATE_KEY_FILE, OAUTH_SCOPE)
+#
+# # An authenticated Drive helper object for the app service account.
+# APP_DRIVE_HELPER = drive.DriveHelper(APP_CREDENTIALS)
+#
+# # The decorator to trigger the user's Drive permissions request flow.
+# OAUTH_DECORATOR = oauth2client.contrib.appengine.OAuth2Decorator(
+#     client_id=config.OAUTH_CLIENT_ID,
+#     client_secret=config.OAUTH_CLIENT_SECRET,
+#     scope=OAUTH_SCOPE)
+#
+# # The frequency to poll for export EE task completion (seconds).
+# TASK_POLL_FREQUENCY = 10
 
 
 ###############################################################################
@@ -87,36 +87,31 @@ class DataHandler(webapp2.RequestHandler):
     """Processes a POST request and returns a JSON-encodable result."""
     raise NotImplementedError()
 
-  @OAUTH_DECORATOR.oauth_required
+  # @OAUTH_DECORATOR.oauth_required
   def Handle(self, handle_function):
     """Responds with the result of the handle_function or errors, if any."""
     # Note: The fetch timeout is thread-local so must be set separately
     # for each incoming request.
-    # urlfetch.set_default_fetch_deadline(URL_FETCH_TIMEOUT)
+    urlfetch.set_default_fetch_deadline(120000)
     try:
       response = handle_function()
     except Exception as e:  # pylint: disable=broad-except
-      response = {'error': str(e)}
+      template = "An exception of type {0} occurred. Arguments:\n{1!r}"
+      message = template.format(type(e).__name__, e.args)
+      logging.info(type(e).__name__)
+      logging.info(e.args)
+      response = {'error': message}
     if response:
       self.response.headers['Content-Type'] = 'application/json'
       self.response.out.write(json.dumps(response))
 
 class MainHandler(webapp2.RequestHandler):
     """A servlet to handle requests to load the main web page."""
-    @OAUTH_DECORATOR.oauth_required
+    # @OAUTH_DECORATOR.oauth_required
     def get(self):
         print('MainHandler')
-        # print(users.get_current_user().email())
-
-        """Returns the main web page with Channel API details included."""
-        client_id = _GetUniqueString()
-
         template = JINJA2_ENVIRONMENT.get_template('index.html')
-        self.response.out.write(template.render({
-        'channelToken': channel.create_channel(client_id),
-        'clientId': client_id,
-    }))
-
+        self.response.out.write(template.render())
 
 class RainfallHandler(DataHandler):
     def post(self):
@@ -127,10 +122,12 @@ class RainfallHandler(DataHandler):
         region = data.get('region')
 
         """Returns the main web page, populated with Rainfall map"""
-        mapid = GetRainfallMapId(startDate, endDate, region)
+        rainfallObj = GetRainfallMapId(startDate, endDate, region)
         content = {
-            'mapid': mapid['mapid'],
-            'token': mapid['token']
+            'mapid': rainfallObj.get('mapId').get('mapid'),
+            'token': rainfallObj.get('mapId').get('token'),
+            'colors': rainfallObj.get('colors'),
+            'values': rainfallObj.get('values')
         }
         self.response.headers['Content-Type'] = 'application/json'
         self.response.out.write(json.dumps(content))
@@ -153,9 +150,7 @@ class CropHandler(DataHandler):
 
 class ExportHandler(DataHandler):
   """A servlet to handle requests for image exports."""
-  print('-----------ExportHandler------------')
-
-  # @OAUTH_DECORATOR.oauth_required
+  logging.info('-----------ExportHandler------------')
   def DoPost(self):
     """Kicks off export of an image for the specified year and region.
 
@@ -171,160 +166,42 @@ class ExportHandler(DataHandler):
     startDate = data.get('from')
     endDate = data.get('to')
     region = data.get('region')
-    print('test')
-    print(users.get_current_user().email())
-    email = users.get_current_user().email()
-    client_id = self.request.get('client_id')
-    user_id = users.get_current_user().user_id()
-    filename = 'OpenWaterDataExport'
 
-    print(users.get_current_user().email())
-    # Get the image for the year and region to export.
-    # image = GetExportableImage()
-    #
-    # # Use a unique prefix to identify the exported file.
-    temp_file_prefix = _GetUniqueString()
-    #
-    # # Create and start the task.
-    # task = ee.batch.Export.image(
-    #     image=image,
-    #     description='Earth Engine Demo Export',
-    #     config={
-    #         'driveFileNamePrefix': temp_file_prefix
-    #     })
-    # Make a collection of points.
-    # features = ee.FeatureCollection([
-    #   ee.Feature(ee.Geometry.Point(30.41, 59.933), {name: 'Voronoi'}),
-    #   ee.Feature(ee.Geometry.Point(-73.96, 40.781), {name: 'Thiessen'}),
-    #   ee.Feature(ee.Geometry.Point(6.4806, 50.8012), {name: 'Dirichlet'})
-    # ]);
 
     boundary = ee.FeatureCollection('ft:17JOXbbYVVanIDQtR689Ia1j_blb85l7lwkmwG_KH')
 
-    # // Export the FeatureCollection to a KML file.
-    task = ee.batch.Export.table(
-      collection= boundary,
-      description='vectorsToDriveExample',
-      config={
-            'driveFileNamePrefix': temp_file_prefix
-        })
-
-    task.start()
-    logging.info('Started EE task (id: %s).', task.id)
-
-    # Wait for the task to complete (taskqueue auto times out after 10 mins).
-    while task.active():
-      logging.info('Polling for task (id: %s).', task.id)
-      time.sleep(TASK_POLL_FREQUENCY)
-
-    def _SendMessage(message):
-      logging.info('Sent to client: ' + json.dumps(message))
-      _SendMessageToClient(client_id, filename, message)
-
-    # Make a copy (or copies) in the user's Drive if the task succeeded.
-    state = task.status()['state']
-    if state == ee.batch.Task.State.COMPLETED:
-      logging.info('Task succeeded (id: %s).', task.id)
-      try:
-        link = _GiveFilesToUser(temp_file_prefix, email, user_id, filename)
-        # Notify the user's browser that the export is complete.
-        _SendMessage({'link': link})
-
-        self.response.headers['Content-Type'] = 'application/json'
-        self.response.out.write(json.dumps({
-            'rainfall': 'success',
-            'link': link
-        }))
-      except Exception as e:  # pylint: disable=broad-except
-        _SendMessage({'error': 'Failed to give file to user: ' + str(e)})
-    else:
-      _SendMessage({'error': 'Task failed (id: %s).' % task.id})
-
-    ###############################################################################
-#                           The task status poller.                           #
-###############################################################################
+    try:
+      downloadUrl = boundary.getDownloadUrl(
+          filename='testfile'
+          )
+      response = {
+            'status': 'success',
+            'downloadUrl': downloadUrl
+        }
+    except Exception as e:  # pylint: disable=broad-except
+      template = "An exception of type {0} occurred. Arguments:\n{1!r}"
+      message = template.format(type(e).__name__, e.args)
+      logging.info(type(e).__name__)
+      logging.info(e.args)
+      response = {'status': message}
 
 
-class ExportRunnerHandler(webapp2.RequestHandler):
-  print('-----------ExportRunnerHandler------------')
-  """A servlet for handling async export task requests."""
 
-  def post(self):
-    """Exports an image for the year and region, gives it to the user.
+    logging.info('Download URL: %s', downloadUrl)
 
-    This is called by our trusted export handler and runs as a separate
-    process.
+    self.response.headers['Content-Type'] = 'application/json'
+    self.response.out.write(json.dumps(response))
 
-    HTTP Parameters:
-      email: The email address of the user who initiated this task.
-      filename: The final filename of the file to create in the user's Drive.
-      client_id: The ID of the client (for the Channel API).
-      task: The pickled task to poll.
-      temp_file_prefix: The prefix of the temp file in the service account's
-          Drive.
-      user_id: The ID of the user who initiated this task.
-    """
-    region = self.request.get('region')
-    startDate = self.request.get('startDate')
-    client_id = self.request.get('client_id')
-    endDate = self.request.get('endDate')
-    user_id = self.request.get('user_id')
-    email = self.request.get('email')
-    filename = 'OpenWaterDataExport'
 
-    print(email)
-    # Get the image for the year and region to export.
-    image = GetExportableImage()
-
-    # Use a unique prefix to identify the exported file.
-    temp_file_prefix = _GetUniqueString()
-
-    # Create and start the task.
-    task = ee.batch.Export.image(
-        image=image,
-        description='Earth Engine Demo Export',
-        config={
-            'driveFileNamePrefix': temp_file_prefix
-        })
-    task.start()
-    logging.info('Started EE task (id: %s).', task.id)
-
-    # Wait for the task to complete (taskqueue auto times out after 10 mins).
-    while task.active():
-      logging.info('Polling for task (id: %s).', task.id)
-      time.sleep(TASK_POLL_FREQUENCY)
-
-    def _SendMessage(message):
-      logging.info('Sent to client: ' + json.dumps(message))
-      _SendMessageToClient(client_id, filename, message)
-
-    # Make a copy (or copies) in the user's Drive if the task succeeded.
-    state = task.status()['state']
-    if state == ee.batch.Task.State.COMPLETED:
-      logging.info('Task succeeded (id: %s).', task.id)
-      try:
-        link = _GiveFilesToUser(temp_file_prefix, email, user_id, filename)
-        # Notify the user's browser that the export is complete.
-        _SendMessage({'link': link})
-
-        self.response.headers['Content-Type'] = 'application/json'
-        self.response.out.write(json.dumps(link))
-      except Exception as e:  # pylint: disable=broad-except
-        _SendMessage({'error': 'Failed to give file to user: ' + str(e)})
-    else:
-      _SendMessage({'error': 'Task failed (id: %s).' % task.id})
 
 # Define webapp2 routing from URL paths to web request handlers. See:
 # http://webapp-improved.appspot.com/tutorials/quickstart.html
 app = webapp2.WSGIApplication([
-    # ('/export', ExportHandler),
     ('/exportRainfall', ExportHandler),
     ('/exportCrop', ExportHandler),
-    # ('/exportrunner', ExportRunnerHandler),
     ('/rainfall', RainfallHandler),
     ('/crop', CropHandler),
-    ('/', MainHandler),
-    (OAUTH_DECORATOR.callback_path, OAUTH_DECORATOR.callback_handler()),
+    ('/', MainHandler)
 ])
 
 
@@ -356,13 +233,14 @@ def GetCropMapId(startDate, endDate, region):
         .filterBounds(boundary)
         .filterDate(startDate, endDate))
 
-    #Visualization Parameters
+    # Visualization Parameters
     vizParams = {
         'bands': "ndvi",
         'min':0,
         'max':1,
         'palette': "0000FF,D2691E,FFFF00,009500,FF0000,FFFFFF"
     }
+
 
     # Compute the mean brightness in the region in each image.
     def NormalizedDifference(image):
@@ -372,6 +250,43 @@ def GetCropMapId(startDate, endDate, region):
     ndvi = L8.map(NormalizedDifference)
     medianNDVI = ndvi.median().clip(boundary)
     return medianNDVI.getMapId(vizParams)
+
+def getLegendColors(image, boundary, vizParams):
+    buckets = 5;
+    scale = 10000;
+
+    histogram = image.reduceRegion(
+        reducer=ee.Reducer.histogram(buckets),
+        geometry=boundary,
+        scale=image.projection().nominalScale()
+        ).get('precipitationCal').getInfo()
+    values = histogram.get('bucketMeans');
+
+    # Compute the mean brightness in the region in each image.
+    def getRGBColors(v):
+        color = ee.Image.constant(v).visualize(
+            min=50,
+            max=1000,
+            palette="#bae4bc,#7bccc4,#43a2ca,#0868ac"
+        ).reduceRegion(ee.Reducer.first(), ee.Algorithms.GeometryConstructors.Point([0,0]), 1);
+        return color.getInfo()
+
+    colors = map(getRGBColors, values)
+
+    def getHexColors(color):
+        r = color['vis-red'];
+        g = color['vis-green'];
+        b = color['vis-blue'];
+        return ('#%02x%02x%02x' % (r, g, b))
+
+    hexColors = map(getHexColors, colors)
+    print(hexColors)
+    print(values)
+    return {
+        'colors': hexColors,
+        'values': values
+    }
+
 
 def GetRainfallMapId(startDate, endDate, region):
     #  ***** Declare vector boundary *****
@@ -395,7 +310,14 @@ def GetRainfallMapId(startDate, endDate, region):
       'max': 1000,
       'palette':"#bae4bc,#7bccc4,#43a2ca,#0868ac"
     }
-    return rainfall.getMapId(vizParams)
+
+    legendConfig = getLegendColors(rainfall, boundary, vizParams)
+    return {
+        'mapId': rainfall.getMapId(vizParams),
+        'colors': legendConfig.get('colors'),
+        'values': legendConfig.get('values')
+    }
+
 
 def _GetUniqueString():
   """Returns a likely-to-be unique string."""
@@ -405,16 +327,16 @@ def _GetUniqueString():
   return date_str + random_str
 
 
-def _SendMessageToClient(client_id, filename, params):
-  """Sends a message to the client using the Channel API.
-
-  Args:
-    client_id: The ID of the client to message.
-    filename: The name of the exported file the message is about.
-    params: The params to send in the message (as a Dictionary).
-  """
-  params['filename'] = filename
-  channel.send_message(client_id, json.dumps(params))
+# def _SendMessageToClient(client_id, filename, params):
+#   """Sends a message to the client using the Channel API.
+#
+#   Args:
+#     client_id: The ID of the client to message.
+#     filename: The name of the exported file the message is about.
+#     params: The params to send in the message (as a Dictionary).
+#   """
+#   params['filename'] = filename
+#   channel.send_message(client_id, json.dumps(params))
 
 
 def GetExportableImage():

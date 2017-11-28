@@ -94,9 +94,9 @@ class layerSwitch extends Component {
       exportStatus['link'] !== undefined
     ) {
       var msgText =
-        '<span class="close-btn"><i class="fa fa-close"></i></span><span>Exported successfully! Open in Drive:  <a target="_blank" href="' +
+        '<span class="close-btn"><i class="fa fa-close"></i></span><span>Exported successfully! <a target="_blank" href="' +
         exportStatus['link'] +
-        '">Link</a></span>';
+        '">Download Link</a></span>';
       var self = this;
       self.showMessage('alert-success', msgText);
       $('.fa-close').on('click', function() {
@@ -118,7 +118,7 @@ class layerSwitch extends Component {
           onClick={this.onExportClick}
           data-toggle="tooltip"
           data-placement="left"
-          title="Export to Google Drive"
+          title="Download"
         >
           <i className="fa fa-download" aria-hidden="true" />
         </span>
@@ -127,7 +127,18 @@ class layerSwitch extends Component {
 
     return (
       <div className="layer-list-item">
-        <span className="slider-label">{this.props.name}</span>
+        <span
+          className="slider-label"
+          title={
+            this.props.id === 'crop'
+              ? 'Vegetation layer has not been implemented yet'
+              : ''
+          }
+          data-toggle="tooltip"
+          data-placement="right"
+        >
+          {this.props.name}
+        </span>
         <span
           className="layer-info blue-tooltip"
           data-toggle="tooltip"
@@ -141,6 +152,7 @@ class layerSwitch extends Component {
             type="checkbox"
             onChange={this.onInputChange}
             name={this.props.id}
+            disabled={this.props.id === 'crop' ? 'disabled' : ''}
           />
           <span className="slider round" />
         </label>

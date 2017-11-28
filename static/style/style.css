@@ -83,14 +83,16 @@ body {
   /*border: 1px solid #337ab7;*/
 }
 
-#info-box {
+#legend-box {
   background-color: white;
   border: 1px solid black;
-  bottom: 30px;
-  height: 40px;
+  bottom: 100px;
   padding: 10px;
   position: absolute;
-  left: 30px;
+  right: 5px;
+  width: 150px;
+  z-index: 100;
+  bottom: 150px;
 }
 
 .sidebar-label {
@@ -234,7 +236,7 @@ input:checked + .slider:before {
 
 /* Switch Layer - END */
 
-#info-box {
+#legend-box {
   display: none;
 }
 
@@ -323,4 +325,21 @@ input:checked + .slider:before {
   color: #3c763d;
   background-color: #dff0d8;
   border-color: #d6e9c6;
+}
+
+.legend-color {
+  width: 20px;
+  float: left;
+  height: 20px;
+  margin-right: 10px;
+}
+
+.legend-value {
+  float: right;
+}
+
+.legend-text {
+  color: #777;
+  font-weight: bold;
+  margin-bottom: 5px;
 }

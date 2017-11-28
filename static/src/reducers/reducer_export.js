@@ -10,25 +10,25 @@ export default function(
 ) {
   switch (action.type) {
     case EXPORT_CROP:
-      if (action.payload.data.crop === 'success') {
+      if (action.payload.data.status === 'success') {
         state = {
           ...state,
           crop: {
             ...state.crop,
-            status: action.payload.data.crop,
-            link: action.payload.data.link
+            status: action.payload.data.status,
+            link: action.payload.data.downloadUrl
           }
         };
         return state;
       }
     case EXPORT_RAINFALL:
-      if (action.payload.data.rainfall === 'success') {
+      if (action.payload.data.status === 'success') {
         state = {
           ...state,
           crop: {
             ...state.crop,
-            status: action.payload.data.rainfall,
-            link: action.payload.data.link
+            status: action.payload.data.status,
+            link: action.payload.data.downloadUrl
           }
         };
         return state;

@@ -14,11 +14,19 @@ class GoogleMap extends Component {
       selectedArea: null,
       rainfallMap: {
         mapid: null,
-        token: null
+        token: null,
+        legend: {
+          colors: [],
+          values: []
+        }
       },
       cropMap: {
         mapid: null,
-        token: null
+        token: null,
+        legend: {
+          colors: [],
+          values: []
+        }
       }
     };
     this.addEELayer = this.addEELayer.bind(this);
@@ -26,6 +34,7 @@ class GoogleMap extends Component {
     this.addLayer = this.addLayer.bind(this);
     this.removeLayer = this.removeLayer.bind(this);
     this.addGeoLayer = this.addGeoLayer.bind(this);
+    this.createLegend = this.createLegend.bind(this);
   }
 
   addEELayer(index, eeMapConfig, name) {
@@ -62,6 +71,43 @@ class GoogleMap extends Component {
       }
     });
     this.map.overlayMapTypes.insertAt(index, overlay);
+    this.createLegend(eeMapConfig);
+    // this.setState(eeMapConfig);
+  }
+
+  removeLegend() {
+    console.log('remove legend');
+    $('#legend-box').hide();
+  }
+  addLegendItem(color, value) {
+    var item =
+      '<i class="legend-color" style="background-color:' +
+      color +
+      '"></i>' +
+      value.toFixed(0) +
+      '<br>';
+    return item;
+  }
+
+  createLegend(eeMapConfig) {
+    console.log('creating legend...');
+    var legendDiv = $('#legend-box');
+
+    if (eeMapConfig.colors && eeMapConfig.colors.length > 0) {
+      legendDiv.empty();
+      legendDiv.show();
+      legendDiv.append('<div class="legend-text"> Legend </div>');
+      for (var i = 0; i < eeMapConfig.colors.length; i++) {
+        var legendRow = this.addLegendItem(
+          eeMapConfig.colors[i],
+          eeMapConfig.values[i]
+        );
+        legendDiv.append(legendRow);
+      }
+    } else {
+      legendDiv.empty();
+      legendDiv.hide();
+    }
   }
 
   removeEELayer(index, layerObj) {
@@ -203,6 +249,10 @@ class GoogleMap extends Component {
       mapTypeControlOptions: {
         style: google.maps.MapTypeControlStyle.HORIZONTAL_BAR,
         position: google.maps.ControlPosition.TOP_CENTER
+      },
+      zoomControl: true,
+      zoomControlOptions: {
+        position: google.maps.ControlPosition.LEFT_BOTTOM
       }
     });
     this.addGeoLayer();
@@ -216,21 +266,26 @@ class GoogleMap extends Component {
   }
 
   componentDidUpdate() {
+    var isMapShowing = false;
     Object.keys(this.props.layers.layers).map(key => {
       if (this.props.layers.layers[key]) {
         this.removeLayer(key);
         this.addLayer(key);
+        isMapShowing = true;
       } else {
         this.removeLayer(key);
       }
     });
+    if (!isMapShowing) {
+      this.removeLegend();
+    }
   }
 
   render() {
     return (
       <div className="map-wrapper">
         <div id="map" className="map" ref="map" />
-        <div id="info-box"> </div>
+        <div id="legend-box">dffr </div>
       </div>
     );
   }
