@@ -29,42 +29,47 @@ import { connect } from 'react-redux';
 import { bindActionCreators } from 'redux';
 import moment from 'moment';
 
-import { DateRangePicker, SingleDatePicker, DayPickerRangeController } from 'react-dates';
+import {
+  DateRangePicker,
+  SingleDatePicker,
+  DayPickerRangeController
+} from 'react-dates';
 
 import 'react-dates/lib/css/_datepicker.css';
 
-import { updateTimePeriod} from '../actions/index';
+import { updateTimePeriod } from '../actions/index';
 
 class Datepicker extends Component {
   constructor(props) {
-      super(props);
-      this.state = {
-        focusedInput: null,
-        startDate: moment().add(-1, 'M'),
-        endDate: moment()
-      };
+    super(props);
+    this.state = {
+      focusedInput: null,
+      // startDate: moment().add(-1, 'M'),
+      startDate: moment().subtract(7, 'days'),
+      endDate: moment()
+    };
 
-      this.props.updateTimePeriod({
-        startDate: moment(this.state.startDate).format("YYYY-MM-DD"),
-        endDate: moment(this.state.endDate).format("YYYY-MM-DD")
-      });
+    this.props.updateTimePeriod({
+      startDate: moment(this.state.startDate).format('YYYY-MM-DD'),
+      endDate: moment(this.state.endDate).format('YYYY-MM-DD')
+    });
 
-      this.onDatesChange = this.onDatesChange.bind(this);
-      this.onClose = this.onClose.bind(this);
+    this.onDatesChange = this.onDatesChange.bind(this);
+    this.onClose = this.onClose.bind(this);
   }
 
   onClose({ startDate, endDate }) {
-      this.setState({ startDate, endDate });
-      if (startDate && endDate) {
-        this.props.updateTimePeriod({
-          startDate: moment(startDate).format("YYYY-MM-DD"),
-          endDate: moment(endDate).format("YYYY-MM-DD")
-        });
-      }
+    this.setState({ startDate, endDate });
+    if (startDate && endDate) {
+      this.props.updateTimePeriod({
+        startDate: moment(startDate).format('YYYY-MM-DD'),
+        endDate: moment(endDate).format('YYYY-MM-DD')
+      });
     }
-    onDatesChange({startDate, endDate}) {
-      this.setState({ startDate, endDate });
-    }
+  }
+  onDatesChange({ startDate, endDate }) {
+    this.setState({ startDate, endDate });
+  }
 
   render() {
     return (
@@ -78,17 +83,14 @@ class Datepicker extends Component {
           endDate={this.state.endDate} // momentPropTypes.momentObj or null,
           onDatesChange={this.onDatesChange}
           onClose={this.onClose}
-
           focusedInput={this.state.focusedInput} // PropTypes.oneOf([START_DATE, END_DATE]) or null,
           onFocusChange={focusedInput => this.setState({ focusedInput })}
           isOutsideRange={() => false}
         />
       </div>
-
     );
   }
 }
-
 
 function mapDispatchToProps(dispatch) {
   return bindActionCreators({ updateTimePeriod }, dispatch);

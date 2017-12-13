@@ -35,6 +35,25 @@ class GoogleMap extends Component {
     this.removeLayer = this.removeLayer.bind(this);
     this.addGeoLayer = this.addGeoLayer.bind(this);
     this.createLegend = this.createLegend.bind(this);
+    this.showError = this.showError.bind(this);
+    this.removeError = this.removeError.bind(this);
+  }
+
+  showError() {
+    $('.message-box')
+      .show()
+      .addClass('alert alert-danger');
+    $('.message-box').html(
+      'Data unavailable. Please try with different dates.'
+    );
+    $('.overlay').hide();
+  }
+
+  removeError() {
+    $('.message-box')
+      .hide()
+      .removeClass('alert alert-danger');
+    $('.message-box').html('');
   }
 
   addEELayer(index, eeMapConfig, name) {
@@ -71,7 +90,11 @@ class GoogleMap extends Component {
       }
     });
     this.map.overlayMapTypes.insertAt(index, overlay);
-    this.createLegend(eeMapConfig);
+    var legendText = 'Total Rainfall (mm)';
+    if (name === 'crop') {
+      legendText = 'Vegetation Legend';
+    }
+    this.createLegend(eeMapConfig, legendText);
     // this.setState(eeMapConfig);
   }
 
@@ -81,7 +104,7 @@ class GoogleMap extends Component {
   }
   addLegendItem(color, value) {
     var item =
-      '<i class="legend-color" style="background-color:' +
+      '<i class="legend-color" class="col-xs-3 col-md-4 col-lg-6" style="background-color:' +
       color +
       '"></i>' +
       value.toFixed(0) +
@@ -89,14 +112,14 @@ class GoogleMap extends Component {
     return item;
   }
 
-  createLegend(eeMapConfig) {
+  createLegend(eeMapConfig, legendText) {
     console.log('creating legend...');
     var legendDiv = $('#legend-box');
 
     if (eeMapConfig.colors && eeMapConfig.colors.length > 0) {
       legendDiv.empty();
       legendDiv.show();
-      legendDiv.append('<div class="legend-text"> Legend </div>');
+      legendDiv.append('<div class="legend-text"> ' + legendText + ' </div>');
       for (var i = 0; i < eeMapConfig.colors.length; i++) {
         var legendRow = this.addLegendItem(
           eeMapConfig.colors[i],
@@ -118,11 +141,25 @@ class GoogleMap extends Component {
     switch (layer) {
       case 'rainfall':
         if (this.props.rainfallMap) {
+          if (this.props.rainfallMap.error) {
+            this.showError();
+            $('.tiles-loading-rainfall').empty();
+
+            return;
+          }
+          this.removeError();
           this.addEELayer(0, this.props.rainfallMap, 'rainfall');
         }
 
       case 'crop':
         if (this.props.cropMap) {
+          if (this.props.cropMap.error) {
+            this.showError();
+            $('.tiles-loading-crop').empty();
+
+            return;
+          }
+          this.removeError();
           this.addEELayer(1, this.props.cropMap, 'crop');
         }
     }
@@ -252,7 +289,11 @@ class GoogleMap extends Component {
       },
       zoomControl: true,
       zoomControlOptions: {
-        position: google.maps.ControlPosition.LEFT_BOTTOM
+        position: google.maps.ControlPosition.RIGHT_BOTTOM
+      },
+      fullscreenControl: true,
+      fullscreenControlOptions: {
+        position: google.maps.ControlPosition.RIGHT_TOP
       }
     });
     this.addGeoLayer();
@@ -285,6 +326,7 @@ class GoogleMap extends Component {
     return (
       <div className="map-wrapper">
         <div id="map" className="map" ref="map" />
+
         <div id="legend-box">dffr </div>
       </div>
     );

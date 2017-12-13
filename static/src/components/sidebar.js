@@ -25,9 +25,9 @@ export default props => {
         </div>
 
         <Datepicker label="Select Time period" />
-        <div className="sidebar-label"> Select Region (click on map)</div>
+        <div className="sidebar-label"> Select Watershed (click on map)</div>
         <div>
-          <span>Region ID: </span>
+          <span>Watershed ID: </span>
           <span id="area_box">None</span>
         </div>
         <div className="tiles-loading" />

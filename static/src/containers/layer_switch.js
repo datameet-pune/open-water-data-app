@@ -76,6 +76,7 @@ class layerSwitch extends Component {
     if (this.state.name === 'rainfall' && this.state.checked === true) {
       $('.tiles-loading-rainfall').text('Loading...');
       $('.overlay').show();
+      this.hideMessage();
       $('.export-btn-rainfall').hide();
       this.props.updateRainfallMap(
         this.props.timeperiod,
@@ -85,6 +86,7 @@ class layerSwitch extends Component {
     if (this.state.name === 'crop' && this.state.checked === true) {
       $('.tiles-loading-crop').text('Loading...');
       $('.overlay').show();
+      this.hideMessage();
       $('.export-btn-crop').hide();
       this.props.updateCropMap(this.props.timeperiod, this.props.selectedArea);
     }
@@ -94,7 +96,7 @@ class layerSwitch extends Component {
       exportStatus['link'] !== undefined
     ) {
       var msgText =
-        '<span class="close-btn"><i class="fa fa-close"></i></span><span>Exported successfully! <a target="_blank" href="' +
+        '<span class="close-btn"><i class="fa fa-close"></i></span><span>Exported successfully! <a href="' +
         exportStatus['link'] +
         '">Download Link</a></span>';
       var self = this;

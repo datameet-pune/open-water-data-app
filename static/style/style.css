@@ -86,13 +86,13 @@ body {
 #legend-box {
   background-color: white;
   border: 1px solid black;
-  bottom: 100px;
+  top: 180px;
   padding: 10px;
   position: absolute;
   right: 5px;
   width: 150px;
   z-index: 100;
-  bottom: 150px;
+  /*bottom: 150px;*/
 }
 
 .sidebar-label {
@@ -307,6 +307,7 @@ input:checked + .slider:before {
   border: 1px solid;
   border-radius: 3px;
   display: none;
+  padding: 5px;
 }
 
 .close-btn {
@@ -342,4 +343,9 @@ input:checked + .slider:before {
   color: #777;
   font-weight: bold;
   margin-bottom: 5px;
+}
+
+.error {
+  background-color: red;
+  opacity: 0.5;
 }

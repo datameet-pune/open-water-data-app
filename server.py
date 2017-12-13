@@ -17,6 +17,8 @@ import webapp2
 from google.appengine.api import urlfetch
 # from google.appengine.api import users
 
+from datetime import date, datetime, timedelta
+
 urlfetch.set_default_fetch_deadline(120000)
 ee.data.setDeadline(60000)
 
@@ -122,15 +124,26 @@ class RainfallHandler(DataHandler):
         region = data.get('region')
 
         """Returns the main web page, populated with Rainfall map"""
-        rainfallObj = GetRainfallMapId(startDate, endDate, region)
-        content = {
-            'mapid': rainfallObj.get('mapId').get('mapid'),
-            'token': rainfallObj.get('mapId').get('token'),
-            'colors': rainfallObj.get('colors'),
-            'values': rainfallObj.get('values')
-        }
+        try:
+            rainfallObj = GetRainfallMapId(startDate, endDate, region)
+            response = {
+                'mapid': rainfallObj.get('mapId').get('mapid'),
+                'token': rainfallObj.get('mapId').get('token'),
+                'colors': rainfallObj.get('colors'),
+                'values': rainfallObj.get('values')
+            }
+        except Exception as e:  # pylint: disable=broad-except
+          template = "An exception of type {0} occurred. Arguments:\n{1!r}"
+          message = template.format(type(e).__name__, e.args)
+          logging.info(type(e).__name__)
+          logging.info(e.args)
+          response = {
+          'error': type(e).__name__,
+          'message': e.args
+          }
+
         self.response.headers['Content-Type'] = 'application/json'
-        self.response.out.write(json.dumps(content))
+        self.response.out.write(json.dumps(response))
 
 class CropHandler(DataHandler):
     def post(self):
@@ -151,7 +164,7 @@ class CropHandler(DataHandler):
 class ExportHandler(DataHandler):
   """A servlet to handle requests for image exports."""
   logging.info('-----------ExportHandler------------')
-  def DoPost(self):
+  def post(self):
     """Kicks off export of an image for the specified year and region.
 
     HTTP Parameters:
@@ -166,32 +179,11 @@ class ExportHandler(DataHandler):
     startDate = data.get('from')
     endDate = data.get('to')
     region = data.get('region')
+    response = GetExportUrl(startDate, endDate, region)
 
-
-    boundary = ee.FeatureCollection('ft:17JOXbbYVVanIDQtR689Ia1j_blb85l7lwkmwG_KH')
-
-    try:
-      downloadUrl = boundary.getDownloadUrl(
-          filename='testfile'
-          )
-      response = {
-            'status': 'success',
-            'downloadUrl': downloadUrl
-        }
-    except Exception as e:  # pylint: disable=broad-except
-      template = "An exception of type {0} occurred. Arguments:\n{1!r}"
-      message = template.format(type(e).__name__, e.args)
-      logging.info(type(e).__name__)
-      logging.info(e.args)
-      response = {'status': message}
-
-
-
-    logging.info('Download URL: %s', downloadUrl)
 
     self.response.headers['Content-Type'] = 'application/json'
     self.response.out.write(json.dumps(response))
-
 
 
 # Define webapp2 routing from URL paths to web request handlers. See:
@@ -267,7 +259,7 @@ def getLegendColors(image, boundary, vizParams):
         color = ee.Image.constant(v).visualize(
             min=50,
             max=1000,
-            palette="#bae4bc,#7bccc4,#43a2ca,#0868ac"
+            palette="#ffffff,#b8e4ff,#73aeff,#307be1,#001245"
         ).reduceRegion(ee.Reducer.first(), ee.Algorithms.GeometryConstructors.Point([0,0]), 1);
         return color.getInfo()
 
@@ -287,44 +279,143 @@ def getLegendColors(image, boundary, vizParams):
         'values': values
     }
 
-
 def GetRainfallMapId(startDate, endDate, region):
-    #  ***** Declare vector boundary *****
-    boundary = ee.FeatureCollection('ft:17JOXbbYVVanIDQtR689Ia1j_blb85l7lwkmwG_KH');
-    if region:
-        boundary = _get_region(region)
-
-    # ***** Filter rainfall data - by boundary, bands and date*****
-    rainfall_GPM = ee.ImageCollection('NASA/GPM_L3/IMERG_V04')
-    rainfall_India  = rainfall_GPM.filterBounds(boundary)
-    rainfall_band = rainfall_India.select('precipitationCal')
-    rainfall_timerange = rainfall_band.filterDate(startDate, endDate)
-
-    #  ***** Make rainfall image *****
-    rainfall = rainfall_timerange.sum().clip(boundary);
-
+    rainfallObj = GetRainfallMap(startDate, endDate, region)
+    rainfall_masked = rainfallObj.get('rainfall_masked')
+    boundary = rainfallObj.get('boundary')
     # ***** Set Visualization Parameters *****
     vizParams = {
       'bands': 'precipitationCal',
       'min': 50,
       'max': 1000,
-      'palette':"#bae4bc,#7bccc4,#43a2ca,#0868ac"
+      'palette':"#ffffff,#b8e4ff,#73aeff,#307be1,#001245"
     }
 
-    legendConfig = getLegendColors(rainfall, boundary, vizParams)
-    return {
-        'mapId': rainfall.getMapId(vizParams),
+    legendConfig = getLegendColors(rainfall_masked, boundary, vizParams)
+    response = {
+        'mapId': rainfall_masked.getMapId(vizParams),
         'colors': legendConfig.get('colors'),
         'values': legendConfig.get('values')
     }
+    return response
+
+def GetExportUrl(startDate, endDate, region):
+    # boundary = ee.FeatureCollection('ft:17JOXbbYVVanIDQtR689Ia1j_blb85l7lwkmwG_KH')
+    rainfallObj = GetRainfallMap(startDate, endDate, region)
+    boundary = rainfallObj.get('boundary')
+    rainfall = rainfallObj.get('rainfall')
+    # # //****** 6. Calculate: Area of River Basin  *****
+    # # // Function declaration
+    # # // This creates a new column, named 'area' which contains the calculated area (in m^2) for each polygon of the river basin
+    print('boundary')
+    print(boundary)
+    boundary = ee.FeatureCollection(boundary)
+    basinPolyArea = boundary.map(lambda f: f.set({'area': f.area()}))
+    boundaryTotalArea = basinPolyArea.reduceColumns(
+      reducer= ee.Reducer.sum(),
+      selectors= ['area']
+    )
+
+    boundaryTotalArea_sqkm = ee.Number(boundaryTotalArea.get('sum')).divide(ee.Number(10).pow(6));
+    print('boundaryTotalArea_sqkm.getInfo()');
+    print(boundaryTotalArea_sqkm.getInfo())
 
 
-def _GetUniqueString():
-  """Returns a likely-to-be unique string."""
-  random_str = ''.join(
-      random.choice(string.ascii_uppercase + string.digits) for _ in range(6))
-  date_str = str(int(time.time()))
-  return date_str + random_str
+
+    # // ****** 9. Prepare CSV for download *******
+    unixTimeList = rainfall.aggregate_array('system:time_start');
+
+    # // Function declaration
+    # def getDateList(utList):
+    #     dt = ee.Date(utList).format('YYYY-MM-dd')
+    #     print(dt.getInfo())
+    #     return dt.getInfo()
+    #
+    # def getTimeList(utList):
+    #     time = ee.Date(utList).format('HH-mm')
+    #     print(time.getInfo())
+    #     return time.getInfo()
+
+    # dates = map(getDateList, unixTimeList.getInfo())
+    # times = map(getDateList, unixTimeList.getInfo())
+    #
+    # print(dates);
+    # print(times);
+
+
+    # print(datetime.now())
+    def perdelta(start, end, delta):
+        curr = start
+        # print(curr)
+        while curr < end:
+            yield curr
+            curr += delta
+
+    start = datetime.strptime(startDate, '%Y-%m-%d')
+    end = datetime.strptime(endDate, '%Y-%m-%d') + timedelta(days=1)
+    dates = []
+    times = []
+    for result in perdelta(start, end, timedelta(minutes = 30)):
+        result = result.strftime('%Y-%m-%d %H-%M')
+        dateTimeObj = result.split()
+        # print(dateTimeObj[0])
+        # print(dateTimeObj[1])
+        dates.append(dateTimeObj[0])
+        times.append(dateTimeObj[1])
+
+    # print(dates)
+    # print(times)
+    try:
+      downloadUrl = boundary.getDownloadUrl(
+          filename='testfile'
+          )
+      response = {
+            'status': 'success',
+            'downloadUrl': downloadUrl
+        }
+      logging.info('Download URL: %s', downloadUrl)
+
+    except Exception as e:  # pylint: disable=broad-except
+      template = "An exception of type {0} occurred. Arguments:\n{1!r}"
+      message = template.format(type(e).__name__, e.args)
+      logging.info(type(e).__name__)
+      logging.info(e.args)
+      response = {'message': e.args, 'error': type(e).__name__}
+    return response
+
+def GetRainfallMap(startDate, endDate, region):
+    #  ***** Declare vector boundary *****
+    India_boundary = ee.FeatureCollection('ft:17JOXbbYVVanIDQtR689Ia1j_blb85l7lwkmwG_KH');
+    boundary = ee.FeatureCollection('ft:17JOXbbYVVanIDQtR689Ia1j_blb85l7lwkmwG_KH');
+    if region:
+        boundary = _get_region(region)
+
+
+    # ***** Filter rainfall data - by boundary, bands and date*****
+    rainfall_GPM = ee.ImageCollection('NASA/GPM_L3/IMERG_V04')
+    rainfall_India  = rainfall_GPM.filterBounds(India_boundary)
+    rainfall_band = rainfall_India.select('precipitationCal')
+    rainfall_timerange = rainfall_band.filterDate(startDate, endDate)
+    rainfall = rainfall_timerange.filterBounds(boundary);
+
+    #  ***** Make rainfall image *****
+    rainfall_sum = rainfall_timerange.sum().clip(boundary);
+    rainfall_masked = rainfall_sum.updateMask(rainfall_sum.gt(0));
+    return {
+        'rainfall': rainfall,
+        'rainfall_sum': rainfall_sum,
+        'rainfall_masked': rainfall_masked,
+        'boundary': boundary
+        }
+
+
+
+# def _GetUniqueString():
+#   """Returns a likely-to-be unique string."""
+#   random_str = ''.join(
+#       random.choice(string.ascii_uppercase + string.digits) for _ in range(6))
+#   date_str = str(int(time.time()))
+#   return date_str + random_str
 
 
 # def _SendMessageToClient(client_id, filename, params):
@@ -339,74 +430,74 @@ def _GetUniqueString():
 #   channel.send_message(client_id, json.dumps(params))
 
 
-def GetExportableImage():
-  """Crops and formats the image for export.
+# def GetExportableImage():
+#   """Crops and formats the image for export.
+#
+#   Args:
+#     image: The image to make exportable.
+#     coordinates: The coordinates to crop the image to.
+#
+#   Returns:
+#     The export-ready image.
+#   """
+#   # The visualization parameters for the images.
+#   VIZ_PARAMS = {
+#     'min': 0,
+#     'max': 63,
+#   }
+#   # Load a landsat image and select three bands.
+#   landsat = ee.Image('LANDSAT/LC08/C01/T1_TOA/LC08_123032_20140515').select(['B4', 'B3', 'B2']);
+#
+#   # Create a geometry representing an export region.
+#   geometry = ee.Geometry.Rectangle([116.2621, 39.8412, 116.4849, 40.01236]);
+#
+#   # Compute the image to export based on parameters.
+#   clipped_image = landsat.clip(geometry)
+#   return clipped_image.visualize(**VIZ_PARAMS)
 
-  Args:
-    image: The image to make exportable.
-    coordinates: The coordinates to crop the image to.
 
-  Returns:
-    The export-ready image.
-  """
-  # The visualization parameters for the images.
-  VIZ_PARAMS = {
-    'min': 0,
-    'max': 63,
-  }
-  # Load a landsat image and select three bands.
-  landsat = ee.Image('LANDSAT/LC08/C01/T1_TOA/LC08_123032_20140515').select(['B4', 'B3', 'B2']);
-
-  # Create a geometry representing an export region.
-  geometry = ee.Geometry.Rectangle([116.2621, 39.8412, 116.4849, 40.01236]);
-
-  # Compute the image to export based on parameters.
-  clipped_image = landsat.clip(geometry)
-  return clipped_image.visualize(**VIZ_PARAMS)
-
-
-def _GiveFilesToUser(temp_file_prefix, email, user_id, filename):
-  """Moves the files with the prefix to the user's Drive folder.
-
-  Copies and then deletes the source files from the app's Drive.
-
-  Args:
-    temp_file_prefix: The prefix of the temp files in the service
-        account's Drive.
-    email: The email address of the user to give the files to.
-    user_id: The ID of the user to give the files to.
-    filename: The name to give the files in the user's Drive.
-
-  Returns:
-    A link to the files in the user's Drive.
-  """
-  files = APP_DRIVE_HELPER.GetExportedFiles(temp_file_prefix)
-
-  # Grant the user write access to the file(s) in the app service
-  # account's Drive.
-  for f in files:
-    APP_DRIVE_HELPER.GrantAccess(f['id'], email)
-
-  # Create a Drive helper to access the user's Google Drive.
-  user_credentials = oauth2client.contrib.appengine.StorageByKeyName(
-      oauth2client.contrib.appengine.CredentialsModel,
-      user_id, 'credentials').get()
-  user_drive_helper = drive.DriveHelper(user_credentials)
-
-  # Copy the file(s) into the user's Drive.
-  if len(files) == 1:
-    file_id = files[0]['id']
-    copied_file_id = user_drive_helper.CopyFile(file_id, filename)
-    trailer = 'open?id=' + copied_file_id
-  else:
-    trailer = ''
-    for f in files:
-      # The titles of the files include the coordinates separated by a dash.
-      coords = '-'.join(f['title'].split('-')[-2:])
-      user_drive_helper.CopyFile(f['id'], filename + '-' + coords)
-
-  # Delete the file from the service account's Drive.
-  for f in files:
-    APP_DRIVE_HELPER.DeleteFile(f['id'])
-
-  return 'https://drive.google.com/' + trailer
+# def _GiveFilesToUser(temp_file_prefix, email, user_id, filename):
+#   """Moves the files with the prefix to the user's Drive folder.
+#
+#   Copies and then deletes the source files from the app's Drive.
+#
+#   Args:
+#     temp_file_prefix: The prefix of the temp files in the service
+#         account's Drive.
+#     email: The email address of the user to give the files to.
+#     user_id: The ID of the user to give the files to.
+#     filename: The name to give the files in the user's Drive.
+#
+#   Returns:
+#     A link to the files in the user's Drive.
+#   """
+#   files = APP_DRIVE_HELPER.GetExportedFiles(temp_file_prefix)
+#
+#   # Grant the user write access to the file(s) in the app service
+#   # account's Drive.
+#   for f in files:
+#     APP_DRIVE_HELPER.GrantAccess(f['id'], email)
+#
+#   # Create a Drive helper to access the user's Google Drive.
+#   user_credentials = oauth2client.contrib.appengine.StorageByKeyName(
+#       oauth2client.contrib.appengine.CredentialsModel,
+#       user_id, 'credentials').get()
+#   user_drive_helper = drive.DriveHelper(user_credentials)
+#
+#   # Copy the file(s) into the user's Drive.
+#   if len(files) == 1:
+#     file_id = files[0]['id']
+#     copied_file_id = user_drive_helper.CopyFile(file_id, filename)
+#     trailer = 'open?id=' + copied_file_id
+#   else:
+#     trailer = ''
+#     for f in files:
+#       # The titles of the files include the coordinates separated by a dash.
+#       coords = '-'.join(f['title'].split('-')[-2:])
+#       user_drive_helper.CopyFile(f['id'], filename + '-' + coords)
+#
+#   # Delete the file from the service account's Drive.
+#   for f in files:
+#     APP_DRIVE_HELPER.DeleteFile(f['id'])
+#
+#   return 'https://drive.google.com/' + trailer
