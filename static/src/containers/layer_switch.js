@@ -40,9 +40,18 @@ class layerSwitch extends Component {
     }
   }
 
+  // onLayerClick(updateStateVal) {
+  //   return updateStateVal;
+  // }
   onInputChange(event) {
     let val = event.target.checked;
     this.state.checked = val;
+    var updateStateName = this.state.name;
+    var updateStateVal = this.state.checked;
+    var updateStateObj = {};
+    updateStateObj[updateStateName] = updateStateVal;
+
+    this.props.onLayerClick(updateStateObj);
     if (this.state.name === 'rainfall' && this.state.checked === true) {
       $('.tiles-loading-rainfall').text('Loading...');
       $('.export-btn-rainfall').hide();
@@ -73,23 +82,23 @@ class layerSwitch extends Component {
   }
 
   componentDidUpdate() {
-    if (this.state.name === 'rainfall' && this.state.checked === true) {
-      $('.tiles-loading-rainfall').text('Loading...');
-      $('.overlay').show();
-      this.hideMessage();
-      $('.export-btn-rainfall').hide();
-      this.props.updateRainfallMap(
-        this.props.timeperiod,
-        this.props.selectedArea
-      );
-    }
-    if (this.state.name === 'crop' && this.state.checked === true) {
-      $('.tiles-loading-crop').text('Loading...');
-      $('.overlay').show();
-      this.hideMessage();
-      $('.export-btn-crop').hide();
-      this.props.updateCropMap(this.props.timeperiod, this.props.selectedArea);
-    }
+    // if (this.state.name === 'rainfall' && this.state.checked === true) {
+    //   $('.tiles-loading-rainfall').text('Loading...');
+    //   $('.overlay').show();
+    //   this.hideMessage();
+    //   $('.export-btn-rainfall').hide();
+    //   this.props.updateRainfallMap(
+    //     this.props.timeperiod,
+    //     this.props.selectedArea
+    //   );
+    // }
+    // if (this.state.name === 'crop' && this.state.checked === true) {
+    //   $('.tiles-loading-crop').text('Loading...');
+    //   $('.overlay').show();
+    //   this.hideMessage();
+    //   $('.export-btn-crop').hide();
+    //   this.props.updateCropMap(this.props.timeperiod, this.props.selectedArea);
+    // }
     const exportStatus = this.props.exportStatus[this.state.name];
     if (
       exportStatus['status'] === 'success' &&
@@ -132,7 +141,7 @@ class layerSwitch extends Component {
         <span
           className="slider-label"
           title={
-            this.props.id === 'crop'
+            this.props.id === 'change back to crop'
               ? 'Vegetation layer has not been implemented yet'
               : ''
           }
@@ -154,7 +163,7 @@ class layerSwitch extends Component {
             type="checkbox"
             onChange={this.onInputChange}
             name={this.props.id}
-            disabled={this.props.id === 'crop' ? 'disabled' : ''}
+            disabled={this.props.id === 'change back to crop' ? 'disabled' : ''}
           />
           <span className="slider round" />
         </label>

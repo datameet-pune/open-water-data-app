@@ -304,11 +304,11 @@ def GetExportUrl(startDate, endDate, region):
     rainfallObj = GetRainfallMap(startDate, endDate, region)
     boundary = rainfallObj.get('boundary')
     rainfall = rainfallObj.get('rainfall')
+    rainfall_sum = rainfallObj.get('rainfall_sum')
+
     # # //****** 6. Calculate: Area of River Basin  *****
     # # // Function declaration
     # # // This creates a new column, named 'area' which contains the calculated area (in m^2) for each polygon of the river basin
-    print('boundary')
-    print(boundary)
     boundary = ee.FeatureCollection(boundary)
     basinPolyArea = boundary.map(lambda f: f.set({'area': f.area()}))
     boundaryTotalArea = basinPolyArea.reduceColumns(
@@ -317,33 +317,64 @@ def GetExportUrl(startDate, endDate, region):
     )
 
     boundaryTotalArea_sqkm = ee.Number(boundaryTotalArea.get('sum')).divide(ee.Number(10).pow(6));
-    print('boundaryTotalArea_sqkm.getInfo()');
-    print(boundaryTotalArea_sqkm.getInfo())
+
+  # // ***** 7. Calculate: Median of rainfall (in mm) for all pixels within the basin for one image *******
+        # // ****** Note: The rainfall data comes in half-hourly (hh) timesteps, i.e. one new raster image for every half hour ******
+
+    def hhMedian(image):
+        median = image.reduceRegion(
+            reducer= ee.Reducer.median(),
+            geometry= boundary,
+            scale= 10000,
+            bestEffort= True
+            )
+        return image.set('medianRain', median);
+
+    def extractList(obj):
+        value = ee.Dictionary(obj).get('precipitationCal');
+        return value;
+
+    # // Function call
+    rainfall_median = rainfall.map(hhMedian);
+    hhRain = rainfall_median.aggregate_array('medianRain');
+    # //pass hhRain to a function that extracts values from objects
+    hhRainList = ee.List(hhRain).map(extractList);
+    # //Length of the list is required later to create a csv for export in Section 9
+    listLen = hhRainList.length().getInfo()
+    hhRainList = hhRainList.getInfo()
+
+    # // ****** 8. Calculate: Total volume of rainfall in River Basin for each time step ******
+
+    # /* Make image where each pixel's rainfall value is multiplied by area of pixel (10^8 m^2) so we finally get
+    # a rainfall map where each pixel shows a volume of rain in Million Cubic Metres (MCM) */
+    # // Step 1: divide rainfall by 10^3 (mm to metre conversion), then multiply by area of pixel (10^8 m^2), then divide by 10^6 (m^3 to MCM conversion)
+    # // Step 2: sum all the volume (MCM) values for the pixels in the basin to get the total volume, add this to the image properties
+    def hhVolume(image):
+        vol_image = image.divide(ee.Number(10).pow(3)).multiply(ee.Number(10).pow(8)).divide(ee.Number(10).pow(6));
+        vol = vol_image.reduceRegion(
+            reducer=ee.Reducer.sum(),
+            geometry= boundary,
+            scale= 10000,
+            bestEffort= False
+            )
+        return image.set('volRain', vol)
 
 
+    # // Function call
+    # // Pass each image from the 'rainfall' collection to estimate the volume of rain that fell in the half hour period
+    rainfallVol = rainfall.map(hhVolume);
+    # // Extract rainfall volume from each image of the collection and prepare a list
+    hhVol = rainfallVol.aggregate_array('volRain');
+    # //The prepared list hhVol is a list of objects
+    # // We pass hhVol to a function that extracts rainfall values from these objects and converts to a plain list
+    hhVolList = ee.List(hhVol).map(extractList).getInfo();
+
+    # // 8.1 Calculate the total rainfall in the basin by summing all pixels of rainfall volume
+
+    totalVolume = rainfall_sum.divide(ee.Number(10).pow(3)).multiply(ee.Number(10).pow(8)).divide(ee.Number(10).pow(6));
 
     # // ****** 9. Prepare CSV for download *******
     unixTimeList = rainfall.aggregate_array('system:time_start');
-
-    # // Function declaration
-    # def getDateList(utList):
-    #     dt = ee.Date(utList).format('YYYY-MM-dd')
-    #     print(dt.getInfo())
-    #     return dt.getInfo()
-    #
-    # def getTimeList(utList):
-    #     time = ee.Date(utList).format('HH-mm')
-    #     print(time.getInfo())
-    #     return time.getInfo()
-
-    # dates = map(getDateList, unixTimeList.getInfo())
-    # times = map(getDateList, unixTimeList.getInfo())
-    #
-    # print(dates);
-    # print(times);
-
-
-    # print(datetime.now())
     def perdelta(start, end, delta):
         curr = start
         # print(curr)
@@ -358,22 +389,36 @@ def GetExportUrl(startDate, endDate, region):
     for result in perdelta(start, end, timedelta(minutes = 30)):
         result = result.strftime('%Y-%m-%d %H-%M')
         dateTimeObj = result.split()
-        # print(dateTimeObj[0])
-        # print(dateTimeObj[1])
         dates.append(dateTimeObj[0])
         times.append(dateTimeObj[1])
 
-    # print(dates)
-    # print(times)
+
+    # // ******* 10. Merge all lists and Export ******* //
+    csvList = []
+    for x in range(0, listLen):
+        date = ee.Date(dates[x]);
+        time = ee.String(times[x]);
+        rain = ee.Number(hhRainList[x]);
+        vol = ee.Number(hhVolList[x]);
+        eeFeatureObj = ee.Feature(None, {
+            "Date": date,
+            "Time": time,
+            "Rain (in mm)": rain,
+            "Rain (in MCM)": vol
+            })
+        csvList.append(eeFeatureObj)
+
+    csv = ee.FeatureCollection(csvList)
+
     try:
-      downloadUrl = boundary.getDownloadUrl(
-          filename='testfile'
+        downloadUrl = ee.FeatureCollection(csv).getDownloadUrl(
+            filename='OWD_Rainfall'
           )
-      response = {
+        response = {
             'status': 'success',
             'downloadUrl': downloadUrl
         }
-      logging.info('Download URL: %s', downloadUrl)
+        logging.info('Download URL: %s', downloadUrl)
 
     except Exception as e:  # pylint: disable=broad-except
       template = "An exception of type {0} occurred. Arguments:\n{1!r}"

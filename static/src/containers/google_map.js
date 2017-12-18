@@ -15,18 +15,12 @@ class GoogleMap extends Component {
       rainfallMap: {
         mapid: null,
         token: null,
-        legend: {
-          colors: [],
-          values: []
-        }
+        legendHTML: null
       },
       cropMap: {
         mapid: null,
         token: null,
-        legend: {
-          colors: [],
-          values: []
-        }
+        legendHTML: null
       }
     };
     this.addEELayer = this.addEELayer.bind(this);
@@ -99,7 +93,7 @@ class GoogleMap extends Component {
   }
 
   removeLegend() {
-    console.log('remove legend');
+    // console.log('remove legend');
     $('#legend-box').hide();
   }
   addLegendItem(color, value) {
@@ -113,23 +107,31 @@ class GoogleMap extends Component {
   }
 
   createLegend(eeMapConfig, legendText) {
-    console.log('creating legend...');
+    // console.log('creating legend...');
     var legendDiv = $('#legend-box');
-
+    let legendInnerDiv = $('<div id="legendInnerDiv"></div>');
+    legendDiv.show();
     if (eeMapConfig.colors && eeMapConfig.colors.length > 0) {
       legendDiv.empty();
-      legendDiv.show();
-      legendDiv.append('<div class="legend-text"> ' + legendText + ' </div>');
+
+      legendInnerDiv.append(
+        '<div class="legend-text"> ' + legendText + ' </div>'
+      );
       for (var i = 0; i < eeMapConfig.colors.length; i++) {
         var legendRow = this.addLegendItem(
           eeMapConfig.colors[i],
           eeMapConfig.values[i]
         );
-        legendDiv.append(legendRow);
+        legendInnerDiv.append(legendRow);
       }
+      this.state.rainfallMap.legendHTML = legendInnerDiv.html();
     } else {
       legendDiv.empty();
-      legendDiv.hide();
+      legendInnerDiv.append(
+        '<div class="legend-text"> Vegetation </div><div>Legend not available</div>'
+      );
+      this.state.cropMap.legendHTML = legendInnerDiv.html();
+      // legendDiv.hide();
     }
   }
 
@@ -312,11 +314,22 @@ class GoogleMap extends Component {
       if (this.props.layers.layers[key]) {
         this.removeLayer(key);
         this.addLayer(key);
+
         isMapShowing = true;
       } else {
         this.removeLayer(key);
       }
     });
+    if (isMapShowing) {
+      if (this.props.layers.layers['rainfall']) {
+        $('#legend-box').html(this.state.rainfallMap.legendHTML);
+      } else if (
+        !this.props.layers.layers['rainfall'] &&
+        this.props.layers.layers['crop']
+      ) {
+        $('#legend-box').html(this.state.cropMap.legendHTML);
+      }
+    }
     if (!isMapShowing) {
       this.removeLegend();
     }
