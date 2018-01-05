@@ -45,8 +45,9 @@ class Datepicker extends Component {
     this.state = {
       focusedInput: null,
       // startDate: moment().add(-1, 'M'),
-      startDate: moment().subtract(7, 'days'),
-      endDate: moment()
+      // startDate: moment().subtract(7, 'days'),
+      startDate: moment({ y: 2017, M: 8, d: 1 }),
+      endDate: moment({ y: 2017, M: 8, d: 30 })
     };
 
     this.props.updateTimePeriod({

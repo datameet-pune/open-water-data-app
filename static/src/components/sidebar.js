@@ -67,13 +67,13 @@ class Sidebar extends Component {
             <LayerSwitch
               name="rainfall"
               id="rainfall"
-              tooltip="Dataset layer displaying rainfall information"
+              tooltip="CHIRPS v2.0 daily precipitation"
               onLayerClick={this.updateState}
             />
             <LayerSwitch
-              name="vegetation"
+              name="Crop Maps"
               id="crop"
-              tooltip="Dataset layer displaying vegetation information"
+              tooltip="Dataset layer displaying crops information"
               onLayerClick={this.updateState}
             />
           </div>

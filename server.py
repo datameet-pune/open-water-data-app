@@ -352,6 +352,7 @@ def GetExportUrl(startDate, endDate, region):
     li = ll-1;   #//List index (Length -1)
 
     csvList = []
+    attribution = ee.String("CHIRPS daily: Climate Hazards Group InfraRed Precipitation with Station data (version 2.0 final) Link: https://code.earthengine.google.com/dataset/UCSB-CHG/CHIRPS/DAILY")
     for x in range(0, ll):
         date = ee.Date(ee.Dictionary(mmList.get(x)).get('Date'));
         mm = ee.Number(ee.Dictionary(mmList.get(x)).get('sum'));
@@ -359,7 +360,8 @@ def GetExportUrl(startDate, endDate, region):
         eeFeatureObj = ee.Feature(None, {
             "Date": date,
             "Rain (in mm)": mm,
-            "Rain (in MCM)": mcm
+            "Rain (in MCM)": mcm,
+            "attribution": attribution
             })
         csvList.append(eeFeatureObj)
 
