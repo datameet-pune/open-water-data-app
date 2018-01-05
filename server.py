@@ -228,7 +228,7 @@ def getLegendColors(image, boundary, vizParams):
         reducer=ee.Reducer.histogram(buckets),
         geometry=boundary,
         scale=image.projection().nominalScale()
-        ).get('precipitationCal').getInfo()
+        ).get('precipitation').getInfo()
     values = histogram.get('bucketMeans');
 
     # Compute the mean brightness in the region in each image.
@@ -262,7 +262,7 @@ def GetRainfallMapId(startDate, endDate, region):
     boundary = rainfallObj.get('boundary')
     # ***** Set Visualization Parameters *****
     vizParams = {
-      'bands': 'precipitationCal',
+      'bands': 'precipitation',
       'min': 50,
       'max': 1000,
       'palette':"#ffffff,#b8e4ff,#73aeff,#307be1,#001245"
@@ -280,8 +280,12 @@ def GetExportUrl(startDate, endDate, region):
     # boundary = ee.FeatureCollection('ft:17JOXbbYVVanIDQtR689Ia1j_blb85l7lwkmwG_KH')
     rainfallObj = GetRainfallMap(startDate, endDate, region)
     boundary = rainfallObj.get('boundary')
-    rainfall = rainfallObj.get('rainfall')
-    rainfall_sum = rainfallObj.get('rainfall_sum')
+    rainfallColl = rainfallObj.get('rainfall')
+    rainfallTotal = rainfallObj.get('rainfallTotal')
+    rainfallCollwDt = rainfallObj.get('rainfallCollwDt')
+
+    prj = ee.Image(rainfallColl.first()).projection()
+    pixelArea = ee.Image.pixelArea().reproject(prj).clip(boundary)
 
     # # //****** 6. Calculate: Area of River Basin  *****
     # # // Function declaration
@@ -293,95 +297,69 @@ def GetExportUrl(startDate, endDate, region):
       selectors= ['area']
     )
 
-    boundaryTotalArea_sqkm = ee.Number(boundaryTotalArea.get('sum')).divide(ee.Number(10).pow(6));
+    print(ee.Number(boundaryTotalArea.get('sum')).getInfo())
+    boundaryTotalArea_sqkm = ee.Number(boundaryTotalArea.get('sum')).divide(10 ** 6);
+    print(boundaryTotalArea_sqkm.getInfo())
 
   # // ***** 7. Calculate: Median of rainfall (in mm) for all pixels within the basin for one image *******
         # // ****** Note: The rainfall data comes in half-hourly (hh) timesteps, i.e. one new raster image for every half hour ******
 
-    def hhMedian(image):
-        median = image.reduceRegion(
-            reducer= ee.Reducer.median(),
-            geometry= boundary,
-            scale= 10000,
-            bestEffort= True
-            )
-        return image.set('medianRain', median);
-
-    def extractList(obj):
-        value = ee.Dictionary(obj).get('precipitationCal');
-        return value;
-
-    # // Function call
-    rainfall_median = rainfall.map(hhMedian);
-    hhRain = rainfall_median.aggregate_array('medianRain');
-    # //pass hhRain to a function that extracts values from objects
-    hhRainList = ee.List(hhRain).map(extractList);
-    # //Length of the list is required later to create a csv for export in Section 9
-    listLen = hhRainList.length().getInfo()
-    hhRainList = hhRainList.getInfo()
-
-    # // ****** 8. Calculate: Total volume of rainfall in River Basin for each time step ******
-
-    # /* Make image where each pixel's rainfall value is multiplied by area of pixel (10^8 m^2) so we finally get
-    # a rainfall map where each pixel shows a volume of rain in Million Cubic Metres (MCM) */
-    # // Step 1: divide rainfall by 10^3 (mm to metre conversion), then multiply by area of pixel (10^8 m^2), then divide by 10^6 (m^3 to MCM conversion)
-    # // Step 2: sum all the volume (MCM) values for the pixels in the basin to get the total volume, add this to the image properties
-    def hhVolume(image):
-        vol_image = image.divide(ee.Number(10).pow(3)).multiply(ee.Number(10).pow(8)).divide(ee.Number(10).pow(6));
-        vol = vol_image.reduceRegion(
-            reducer=ee.Reducer.sum(),
-            geometry= boundary,
-            scale= 10000,
-            bestEffort= False
-            )
-        return image.set('volRain', vol)
+    def mmMedian(image):
+      median = image.reduceRegion(
+        reducer= ee.Reducer.median(),
+        geometry= boundary,
+        scale= 10000,
+        bestEffort= False
+      ).get('precipitation');
+      return image.set({'medianRain': median});
 
 
-    # // Function call
-    # // Pass each image from the 'rainfall' collection to estimate the volume of rain that fell in the half hour period
-    rainfallVol = rainfall.map(hhVolume);
-    # // Extract rainfall volume from each image of the collection and prepare a list
-    hhVol = rainfallVol.aggregate_array('volRain');
-    # //The prepared list hhVol is a list of objects
-    # // We pass hhVol to a function that extracts rainfall values from these objects and converts to a plain list
-    hhVolList = ee.List(hhVol).map(extractList).getInfo();
+    def mcmVolume(image):
+      vol_image = (image
+        .divide(1e3)            #// convert mm to metres
+        .multiply(pixelArea)    #// multiply metres by pixelArea (mts) to get volume in metre^3
+        .divide(1e6)           #// convert m^3 to Million Cubic Metres (MCM)
+        )
+      vol = vol_image.reduceRegion(
+        reducer= ee.Reducer.sum(),
+        geometry= boundary,
+        scale= 10000,
+        bestEffort= False
+      ).get('precipitation')
+      return image.set({'volRain': vol})
 
-    # // 8.1 Calculate the total rainfall in the basin by summing all pixels of rainfall volume
+    # // Function call - #7.1 and #8.1
+    rainfall_mm = rainfallCollwDt.map(mmMedian);
+    # print(rainfall_mm);
+    rainfall_vol = rainfallCollwDt.map(mcmVolume);
+    # print(rainfall_vol);
 
-    totalVolume = rainfall_sum.divide(ee.Number(10).pow(3)).multiply(ee.Number(10).pow(8)).divide(ee.Number(10).pow(6));
+    # // Calculate a list of daily values - #7.2 and #8.2
+    daily_mm = rainfall_mm.reduceColumns(
+        selectors= ['medianRain','date'],         # // select these two properties of each image we created before
+        reducer= ee.Reducer.sum().group(groupField= 1, groupName= 'Date')
+    ).get('groups');
 
-    # // ****** 9. Prepare CSV for download *******
-    unixTimeList = rainfall.aggregate_array('system:time_start');
-    def perdelta(start, end, delta):
-        curr = start
-        # print(curr)
-        while curr < end:
-            yield curr
-            curr += delta
+    daily_mcm = rainfall_vol.reduceColumns(
+        selectors= ['volRain','date'],
+        reducer= ee.Reducer.sum().group(groupField= 1, groupName= 'Date')
+    ).get('groups');
 
-    start = datetime.strptime(startDate, '%Y-%m-%d')
-    end = datetime.strptime(endDate, '%Y-%m-%d') + timedelta(days=1)
-    dates = []
-    times = []
-    for result in perdelta(start, end, timedelta(minutes = 30)):
-        result = result.strftime('%Y-%m-%d %H-%M')
-        dateTimeObj = result.split()
-        dates.append(dateTimeObj[0])
-        times.append(dateTimeObj[1])
+    mmList = ee.List(daily_mm);
+    mcmList = ee.List(daily_mcm);
 
+    ll = mmList.length().getInfo();             #//List length
+    li = ll-1;   #//List index (Length -1)
 
-    # // ******* 10. Merge all lists and Export ******* //
     csvList = []
-    for x in range(0, listLen):
-        date = ee.Date(dates[x]);
-        time = ee.String(times[x]);
-        rain = ee.Number(hhRainList[x]);
-        vol = ee.Number(hhVolList[x]);
+    for x in range(0, ll):
+        date = ee.Date(ee.Dictionary(mmList.get(x)).get('Date'));
+        mm = ee.Number(ee.Dictionary(mmList.get(x)).get('sum'));
+        mcm = ee.Number(ee.Dictionary(mcmList.get(x)).get('sum'));
         eeFeatureObj = ee.Feature(None, {
             "Date": date,
-            "Time": time,
-            "Rain (in mm)": rain,
-            "Rain (in MCM)": vol
+            "Rain (in mm)": mm,
+            "Rain (in MCM)": mcm
             })
         csvList.append(eeFeatureObj)
 
@@ -412,20 +390,26 @@ def GetRainfallMap(startDate, endDate, region):
     if region:
         boundary = _get_region(region)
 
+    rainfallColl = (
+        ee.ImageCollection('UCSB-CHG/CHIRPS/DAILY')
+        .filterBounds(boundary)
+        .filterDate(startDate, endDate)
+        .select('precipitation')
+    )
 
-    # ***** Filter rainfall data - by boundary, bands and date*****
-    rainfall_GPM = ee.ImageCollection('NASA/GPM_L3/IMERG_V04')
-    rainfall_India  = rainfall_GPM.filterBounds(India_boundary)
-    rainfall_band = rainfall_India.select('precipitationCal')
-    rainfall_timerange = rainfall_band.filterDate(startDate, endDate)
-    rainfall = rainfall_timerange.filterBounds(boundary);
+    def setRainfallDate(img):
+        dt = ee.Date(img.get('system:time_start')).format('YYYY-MM-dd')
+        return img.set({'date': dt})
+
+    rainfallCollwDt = rainfallColl.map(setRainfallDate)
 
     #  ***** Make rainfall image *****
-    rainfall_sum = rainfall_timerange.sum().clip(boundary);
-    rainfall_masked = rainfall_sum.updateMask(rainfall_sum.gt(0));
+    rainfallTotal = rainfallCollwDt.sum().clip(boundary);
+    rainfall_masked = rainfallTotal.updateMask(rainfallTotal.gt(0));
     return {
-        'rainfall': rainfall,
-        'rainfall_sum': rainfall_sum,
+        'rainfall': rainfallColl,
+        'rainfallTotal': rainfallTotal,
+        'rainfallCollwDt': rainfallCollwDt,
         'rainfall_masked': rainfall_masked,
         'boundary': boundary
         }
