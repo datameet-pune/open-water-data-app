@@ -1,4 +1,5 @@
 import _ from 'lodash';
+import $ from 'jquery';
 import React, { Component } from 'react';
 import LayerSwitch from '../containers/layer_switch';
 import Datepicker from '../containers/Datepicker';

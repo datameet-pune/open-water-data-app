@@ -5,7 +5,7 @@ import { connect } from 'react-redux';
 import { bindActionCreators } from 'redux';
 import { setSelectedArea } from '../actions/index';
 
-import riverBasins from '!json!../data/RiverBasins_only_ID';
+import riverBasins from '!json!../data/RiverBasins_only_ID_1mb';
 
 class GoogleMap extends Component {
   constructor(props) {

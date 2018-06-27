@@ -1,10 +1,11 @@
 // const UglifyJSPlugin = require('uglifyjs-webpack-plugin');
 var webpack = require('webpack');
+// var CompressionPlugin = require('compression-webpack-plugin');
+// var BundleAnalyzerPlugin = require('webpack-bundle-analyzer')
+//   .BundleAnalyzerPlugin;
 
 module.exports = {
-  entry: [
-    './src/index.js'
-  ],
+  entry: ['./src/index.js'],
   output: {
     path: __dirname,
     publicPath: '/',
@@ -20,39 +21,43 @@ module.exports = {
         }
       },
       {
-        test: /\.(jpe?g|png|gif)$/i,   //to support eg. background-image property
-        loader:"file-loader",
-        query:{
-          name:'[name].[ext]',
-          outputPath:'images/'
+        test: /\.(jpe?g|png|gif)$/i, //to support eg. background-image property
+        loader: 'file-loader',
+        query: {
+          name: '[name].[ext]',
+          outputPath: 'images/'
           //the images will be emmited to public/assets/images/ folder
           //the images will be put in the DOM <style> tag as eg. background: url(assets/images/image.png);
         }
       },
       {
-        test: /\.(woff(2)?|ttf|eot|svg)(\?v=[0-9]\.[0-9]\.[0-9])?$/,    //to support @font-face rule
-        loader: "url-loader",
-        query:{
-          limit:'10000',
-          name:'[name].[ext]',
-          outputPath:'fonts/'
+        test: /\.(woff(2)?|ttf|eot|svg)(\?v=[0-9]\.[0-9]\.[0-9])?$/, //to support @font-face rule
+        loader: 'url-loader',
+        query: {
+          limit: '10000',
+          name: '[name].[ext]',
+          outputPath: 'fonts/'
           //the fonts will be emmited to public/assets/fonts/ folder
           //the fonts will be put in the DOM <style> tag as eg. @font-face{ src:url(assets/fonts/font.ttf); }
         }
       },
       {
         test: /\.scss$/,
-        loaders: [{
-                loader: "style-loader" // creates style nodes from JS strings
-            }, {
-                loader: "css-loader" // translates CSS into CommonJS
-            }, {
-                loader: "sass-loader" // compiles Sass to CSS
-            }]
+        loaders: [
+          {
+            loader: 'style-loader' // creates style nodes from JS strings
+          },
+          {
+            loader: 'css-loader' // translates CSS into CommonJS
+          },
+          {
+            loader: 'sass-loader' // compiles Sass to CSS
+          }
+        ]
       },
       {
         test: /\.css$/,
-        loaders: ["style-loader","css-loader"]
+        loaders: ['style-loader', 'css-loader']
       },
       {
         test: /\.(png|jpg|ico)$/,
@@ -74,8 +79,8 @@ module.exports = {
       return [
         new webpack.DefinePlugin({
           'process.env': {
-            NODE_ENV: JSON.stringify('production'),
-          },
+            NODE_ENV: JSON.stringify('production')
+          }
         }),
 
         // note that webpack's -p shortcut runs the UglifyJsPlugin (https://github.com/webpack/docs/wiki/optimization)
@@ -83,9 +88,20 @@ module.exports = {
         // so have to set comments: false here to remove all the comments
         new webpack.optimize.UglifyJsPlugin({
           output: {
-            comments: false,
-          },
-        }),
+            comments: false
+          }
+        })
+        // new webpack.optimize.DedupePlugin(), //dedupe similar code
+        // new webpack.optimize.AggressiveMergingPlugin(), //Merge chunks
+        // new CompressionPlugin({
+        //   //<-- Add this
+        //   asset: '[path].gz[query]',
+        //   algorithm: 'gzip',
+        //   test: /\.js$|\.css$|\.html$/,
+        //   threshold: 10240,
+        //   minRatio: 0.8
+        // })
+        // ,new BundleAnalyzerPlugin()
       ];
     }
     return [];
